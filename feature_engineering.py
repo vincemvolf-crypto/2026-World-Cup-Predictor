@@ -34,17 +34,27 @@ def _pivot_long_to_wide(raw: pd.DataFrame) -> pd.DataFrame:
     wide = raw[id_cols].drop_duplicates(subset=[c for c in id_cols if c != "min"])
     wide = wide.drop_duplicates(subset=["player", "date", "team"])
 
-    for stat_name, (stat_type, col) in config.TARGET_STATS.items():
+    for stat_name, (stat_type, candidates) in config.TARGET_STATS.items():
         sub = raw[raw["stat_type"] == stat_type]
-        if col not in sub.columns:
-            print(f"  WARNING: column '{col}' not found for stat_type "
-                  f"'{stat_type}' - '{stat_name}' will be all-NaN. "
-                  f"Check FBref's actual column names and update config.py.")
+        if sub.empty:
+            print(f"  WARNING: no rows for stat_type '{stat_type}' "
+                  f"(needed for '{stat_name}') - setting to NaN.")
             wide[stat_name] = np.nan
             continue
+
+        found_col = next((c for c in candidates if c in sub.columns), None)
+        if found_col is None:
+            available = sorted(c for c in sub.columns
+                                if c not in ("player", "date", "team", "stat_type"))
+            print(f"  WARNING: none of {candidates} found for '{stat_name}' "
+                  f"(stat_type='{stat_type}'). '{stat_name}' will be 0/NaN. "
+                  f"Available columns in '{stat_type}': {available}")
+            wide[stat_name] = np.nan
+            continue
+
         merge_cols = [c for c in ["player", "date", "team"] if c in sub.columns]
         wide = wide.merge(
-            sub[merge_cols + [col]].rename(columns={col: stat_name}),
+            sub[merge_cols + [found_col]].rename(columns={found_col: stat_name}),
             on=merge_cols, how="left",
         )
 
@@ -189,7 +199,7 @@ def _blend_international_form(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-
+def build_training_table(raw_path: str, output_name: str) -> pd.DataFrame:
     print(f"Loading {raw_path} ...")
     raw = pd.read_parquet(raw_path)
 
@@ -220,36 +230,4 @@ def _blend_international_form(df: pd.DataFrame) -> pd.DataFrame:
     print("  blending international form (if available) ...")
     wide = _blend_international_form(wide)
 
-
-    out_path = f"{config.PROCESSED_DIR}/{output_name}.parquet"
-    wide.to_parquet(out_path)
-    print(f"  saved {len(wide):,} rows -> {out_path}")
-    return wide
-
-
-def main():
-    import os
-    os.makedirs(config.PROCESSED_DIR, exist_ok=True)
-
-    build_training_table(
-        f"{config.RAW_DIR}/fbref_club_form_raw.parquet", "club_form_table"
-    )
-    build_training_table(
-        f"{config.RAW_DIR}/fbref_world_cup_raw.parquet", "world_cup_table"
-    )
-
-    intl_raw = f"{config.RAW_DIR}/fbref_international_raw.parquet"
-    if os.path.exists(intl_raw):
-        print("Building international form table ...")
-        intl = pd.read_parquet(intl_raw)
-        wide = _pivot_long_to_wide(intl)
-        wide = _add_rolling_form(wide)
-        wide.to_parquet(config.INTERNATIONAL_TABLE)
-        print(f"  saved -> {config.INTERNATIONAL_TABLE}")
-    else:
-        print("No international raw data found - skipping international "
-              "form table (club form will be used as-is).")
-
-
-if __name__ == "__main__":
-    main()
+    out_path = f"{config.PROCESSED_DIR}/{out
