@@ -152,8 +152,8 @@ def main():
     print(f"Saved {len(matches_out)} matches -> {out_path}")
 
     # Also copy to site/ so it's served alongside the dashboard
-    os.makedirs("site", exist_ok=True)
-    with open("site/predictions.json", "w") as f:
+    os.makedirs("docs", exist_ok=True)
+    with open("docs/predictions.json", "w") as f:
         json.dump(bundle, f, indent=2, default=str)
 
 
