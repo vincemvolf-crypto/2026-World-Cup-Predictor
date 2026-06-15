@@ -8,20 +8,30 @@ features, models, predictions) reads from here.
 # -----------------------------------------------------------------------
 # THE 12 TARGET STATS
 # Keys = internal names used everywhere in the pipeline.
-# Values = (FBref source table, FBref column name) - used by data_collection.py
+# Values = (FBref source table, [candidate column names]) - used by
+# feature_engineering.py, which tries each candidate in order and uses the
+# first one that exists.
+#
+# IMPORTANT: soccerdata's read_player_match_stats() only supports two
+# table types: "summary" and "keepers". The "summary" table covers most
+# outfield stats (goals, shots, passes, tackles, take-ons, shot-creating
+# actions). A few stats (clearances, crosses) are NOT in the summary table
+# at match level in this library version - they're listed here with their
+# best-guess names anyway. If they're not found, feature_engineering.py
+# will print the actual available columns so the mapping can be corrected.
 # -----------------------------------------------------------------------
 TARGET_STATS = {
-    "passes_attempted":   ("passing",    "Att"),        # Passes attempted
-    "shots":              ("shooting",   "Sh"),         # Shots total
-    "shots_on_target":    ("shooting",   "SoT"),        # Shots on target
-    "saves":              ("keeper",     "Saves"),      # GK saves
-    "dribbles_attempted": ("possession", "Att_take_on"),# Take-ons attempted
-    "clearances":         ("defense",    "Clr"),        # Clearances
-    "crosses":            ("passing",    "Crs"),        # Crosses
-    "shots_assisted":     ("gca",        "SCA_PassLive"),# Shot-creating passes (proxy)
-    "tackles":            ("defense",    "Tkl"),        # Tackles
-    "goals":              ("standard",   "Gls"),        # Goals
-    "assists":            ("standard",   "Ast"),        # Assists
+    "passes_attempted":   ("summary", ["Passes_Att", "Total_Att", "Att"]),
+    "shots":              ("summary", ["Performance_Sh", "Sh"]),
+    "shots_on_target":    ("summary", ["Performance_SoT", "SoT"]),
+    "saves":              ("keepers", ["Performance_Saves", "Shot Stopping_Saves", "Saves"]),
+    "dribbles_attempted": ("summary", ["Take-Ons_Att", "Carries_Att"]),
+    "clearances":         ("summary", ["Clr", "Performance_Clr", "Tackles_Clr"]),
+    "crosses":            ("summary", ["Crs", "Performance_Crs", "Passes_Crs"]),
+    "shots_assisted":     ("summary", ["SCA_SCA", "SCA Types_PassLive", "SCA"]),
+    "tackles":            ("summary", ["Performance_Tkl", "Tkl"]),
+    "goals":              ("summary", ["Performance_Gls", "Gls"]),
+    "assists":            ("summary", ["Performance_Ast", "Ast"]),
     # fantasy_score is NOT scraped - it's computed from the other 11
 }
 
@@ -151,4 +161,3 @@ VENUE_FACTORS_FILE = f"{RAW_DIR}/venue_factors.csv"               # venue,altitu
 
 # International match data (national team appearances)
 INTERNATIONAL_TABLE = f"{PROCESSED_DIR}/international_form_table.parquet"
-
