@@ -31,18 +31,39 @@ def _ensure_dirs():
     os.makedirs(config.PROCESSED_DIR, exist_ok=True)
 
 
+def _flatten_columns(columns):
+    """
+    soccerdata returns FBref tables with multi-level column headers
+    (e.g. ("Passes", "Att"), ("Performance", "Gls")). Flatten these into
+    single strings like "Passes_Att" / "Performance_Gls" so config.py can
+    reference them as plain column names.
+    """
+    flat = []
+    for col in columns:
+        if isinstance(col, tuple):
+            parts = [str(c) for c in col if c and not str(c).startswith("Unnamed")]
+            flat.append("_".join(parts) if parts else str(col[-1]))
+        else:
+            flat.append(str(col))
+    return flat
+
+
 def fetch_player_match_stats(leagues, season, label):
     """
-    Pull all the FBref stat tables we need (standard, shooting, passing,
-    defense, possession, gca, keeper) for the given league(s)/season and
-    merge them into one long-format dataframe of per-player-per-match rows.
+    Pull the FBref match-level stat tables we need and merge them into one
+    long-format dataframe of per-player-per-match rows.
+
+    NOTE: soccerdata's read_player_match_stats() only supports two table
+    types: "summary" (covers most outfield stats) and "keepers" (goalkeeper
+    stats). This is a library limitation, not something we can configure
+    around - see config.py for how the 12 target stats map onto these two
+    tables.
     """
     import soccerdata as sd
 
     fbref = sd.FBref(leagues=leagues, seasons=[season])
 
-    stat_types = ["standard", "shooting", "passing", "defense",
-                   "possession", "gca", "keeper", "misc"]
+    stat_types = ["summary", "keepers"]
 
     frames = []
     for stat_type in stat_types:
@@ -53,6 +74,7 @@ def fetch_player_match_stats(leagues, season, label):
             print(f"    !! failed: {e}")
             continue
         df = df.reset_index()
+        df.columns = _flatten_columns(df.columns)
         df["stat_type"] = stat_type
         frames.append(df)
         time.sleep(1)  # be polite even though soccerdata already throttles
