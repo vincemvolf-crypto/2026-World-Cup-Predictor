@@ -1,0 +1,45 @@
+name: Update World Cup Predictions
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull fresh data
+        run: python data_collection.py
+
+      - name: Rebuild features
+        run: python feature_engineering.py
+
+      - name: Predict expected minutes
+        run: python minutes_model.py
+
+      - name: Retrain models
+        run: python model.py
+
+      - name: Generate predictions for all upcoming fixtures
+        run: python export_predictions.py
+
+      - name: Commit updated predictions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/predictions.json predictions/ data/
+          git diff --cached --quiet || git commit -m "Update predictions [automated]"
+          git push
